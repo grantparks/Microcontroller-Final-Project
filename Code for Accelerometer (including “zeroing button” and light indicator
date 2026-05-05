@@ -1,0 +1,112 @@
+#include <MPU9255.h> // include MPU9255 library
+
+
+float Ax, Ay, Az;
+
+
+const int LED = 3;
+unsigned long lastblink = 0;
+bool ledstate = false;
+
+
+int button = 5;
+int buttonval = 0;
+
+
+float zeroffset = 0.0;
+
+
+MPU9255 mpu;
+
+
+void setup() {
+  Serial.begin(115200);
+
+
+  if (mpu.init()) {
+    Serial.println("initialization failed");
+  } else {
+    Serial.println("initialization successful!");
+  }
+
+
+  mpu.set_acc_scale(scale_2g); 
+
+
+  pinMode(button, INPUT_PULLUP);
+  pinMode(LED, OUTPUT); 
+}
+
+
+void loop() {
+
+
+  // Read accelerometer
+  mpu.read_acc();
+
+
+  // Read button
+  buttonval = digitalRead(button);
+
+
+  Serial.println(buttonval);
+
+
+  // Convert raw values to g's
+  Ax = (float)mpu.ax / 16384.0;
+  Ay = (float)mpu.ay / 16384.0;
+  Az = (float)mpu.az / 16384.0;
+
+
+  // Print values
+  Serial.print("AX: "); Serial.print(Ax, 3); Serial.print(" g");
+  Serial.print(" | AY: "); Serial.print(Ay, 3); Serial.print(" g");
+  Serial.print(" | AZ: "); Serial.print(Az, 3); Serial.println(" g");
+
+
+  // Zero button
+  if (buttonval == LOW) {
+    zeroffset = atan2(Ax, Az) * (180.0 / PI);
+    Serial.println("ZEROED!");
+    delay(500); // debounce
+  }
+
+
+  // Calculate angle
+  float angle = atan2(Ax, Az);
+  float angle_degrees = angle * (180.0 / PI) - zeroffset;
+
+
+  Serial.print("Angle: ");
+  Serial.println(angle_degrees);
+
+
+  // Use degrees for logic
+  float absAngle = abs(angle_degrees);
+  int blinkrate;
+
+
+  // Corrected order
+  if (absAngle > 100) {
+    blinkrate = 300;
+  } else if (absAngle > 50) {
+    blinkrate = 100;
+  } else if (absAngle > 25) {
+    blinkrate = 60;
+  } else if (absAngle > 1) {
+    blinkrate = 10;
+  } else {
+    blinkrate = 1200;
+  }
+
+
+  // LED blink logic
+  if (millis() - lastblink >= blinkrate) {
+    ledstate = !ledstate;
+    digitalWrite(LED, ledstate);
+    lastblink = millis();
+  }
+
+
+  delay(250);
+}
